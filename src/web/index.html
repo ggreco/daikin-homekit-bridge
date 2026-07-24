@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Daikin HomeKit Bridge</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --border: #2a2f3a;
+    --text: #e6e9ef;
+    --muted: #8a92a6;
+    --accent: #4f8cff;
+    --ok: #35c46a;
+    --warn: #f0b400;
+    --err: #ff5d5d;
+    --off: #5a6274;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .pin {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    text-align: right;
+  }
+  .pin .code { font-size: 22px; font-weight: 600; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+  .pin .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px; }
+  section { margin-bottom: 32px; }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin: 0 0 12px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  tr:last-child td { border-bottom: none; }
+  .name { font-weight: 600; }
+  .ip { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+  .dot.ok { background: var(--ok); }
+  .dot.off { background: var(--off); }
+  .dot.err { background: var(--err); }
+  .state { color: var(--muted); font-size: 13px; }
+  .state b { color: var(--text); font-weight: 600; }
+  .actions { text-align: right; white-space: nowrap; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--panel-2); color: var(--text); padding: 7px 12px;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  button.danger:hover { border-color: var(--err); color: var(--err); }
+  button.icon { padding: 6px 9px; }
+  input {
+    font: inherit; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 10px; border-radius: 9px; min-width: 0;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  .addbar { display: flex; gap: 10px; padding: 14px 16px; flex-wrap: wrap; align-items: center; }
+  .addbar input.ip { width: 150px; }
+  .addbar input.nm { flex: 1; min-width: 140px; }
+  .msg { margin-left: auto; font-size: 13px; }
+  .msg.err { color: var(--err); }
+  .msg.ok { color: var(--ok); }
+  .feed { max-height: 420px; overflow-y: auto; font-variant-numeric: tabular-nums; }
+  .feed .row { display: grid; grid-template-columns: 74px 90px 1fr; gap: 12px; padding: 7px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .feed .row:last-child { border-bottom: none; }
+  .feed .ts { color: var(--muted); }
+  .feed .dev { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .feed .lv-warn .msg-txt { color: var(--warn); }
+  .feed .lv-error .msg-txt { color: var(--err); }
+  .empty { padding: 20px 16px; color: var(--muted); }
+  .muted { color: var(--muted); }
+
+  .devlist { display: grid; gap: 12px; }
+  .dev { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+  .dev-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .dev-title .name { font-weight: 600; font-size: 15px; }
+  .dev-title .ip { color: var(--muted); font-size: 12px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .dev-status { margin: 11px 0 13px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .controls.disabled { opacity: .4; pointer-events: none; }
+  .pwr { min-width: 62px; }
+  .pwr.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .seg button { border: none; border-right: 1px solid var(--border); border-radius: 0; padding: 7px 13px; background: var(--panel-2); text-transform: capitalize; }
+  .seg button:last-child { border-right: none; }
+  .seg button.active { background: var(--accent); color: #fff; }
+  .stepper { display: inline-flex; align-items: center; gap: 6px; }
+  .stepper button { min-width: 34px; font-size: 16px; line-height: 1; }
+  .stepper .val { min-width: 58px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1 id="bridge-name">Daikin HomeKit Bridge</h1>
+    <div class="sub" id="bridge-sub">loading…</div>
+  </div>
+  <div class="pin">
+    <div class="label">HomeKit pairing code</div>
+    <div class="code" id="pin">–</div>
+  </div>
+</header>
+
+<main>
+  <section>
+    <h2>Devices</h2>
+    <div id="devices" class="devlist"></div>
+    <div class="card" style="margin-top: 12px;">
+      <div class="addbar">
+        <input class="ip" id="add-ip" placeholder="IP address (e.g. 10.0.0.142)" />
+        <input class="nm" id="add-name" placeholder="Name (optional, auto-detected)" />
+        <button class="primary" id="add-btn">Add device</button>
+        <span class="msg" id="add-msg"></span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Activity</h2>
+    <div class="card feed" id="feed"><div class="empty">No activity yet.</div></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+async function api(method, url, body) {
+  const opts = { method, headers: {} };
+  if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+  const res = await fetch(url, opts);
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+  return data;
+}
+
+function fmtTemp(t) { return (t === null || t === undefined) ? "–" : t.toFixed(1) + "°C"; }
+function fmtTime(iso) { try { return new Date(iso).toLocaleTimeString(); } catch { return iso; } }
+
+function statusCell(d) {
+  if (!d.reachable) {
+    const err = d.last_error ? ` title="${escapeAttr(d.last_error)}"` : "";
+    return `<span class="dot err"></span><span class="state"${err}>unreachable</span>`;
+  }
+  const dot = d.power ? "ok" : "off";
+  const parts = [];
+  parts.push(`<b>${d.power ? "on" : "off"}</b>`);
+  if (d.power) parts.push(d.mode);
+  if (d.target_temp !== null && d.target_temp !== undefined) parts.push("set " + fmtTemp(d.target_temp));
+  const sensor = [];
+  if (d.indoor_temp !== null && d.indoor_temp !== undefined) sensor.push("in " + fmtTemp(d.indoor_temp));
+  if (d.outdoor_temp !== null && d.outdoor_temp !== undefined) sensor.push("out " + fmtTemp(d.outdoor_temp));
+  const sensorTxt = sensor.length ? ` &middot; <span class="muted">${sensor.join(" ")}</span>` : "";
+  return `<span class="dot ${dot}"></span><span class="state">${parts.join(" ")}${sensorTxt}</span>`;
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+function escapeAttr(s) { return escapeHtml(s); }
+
+async function refreshInfo() {
+  try {
+    const info = await api("GET", "/api/info");
+    $("bridge-name").textContent = info.name;
+    $("bridge-sub").textContent = `${info.device_count} device(s) · HAP port ${info.hap_port} · web port ${info.web_port}`;
+    $("pin").textContent = info.pin;
+  } catch (e) { /* ignore */ }
+}
+
+const MODES = ["auto", "heat", "cool"];
+function clampTemp(t) { return Math.min(30, Math.max(16, Math.round(t * 2) / 2)); }
+
+function deviceCard(d) {
+  const seg = MODES.map(m =>
+    `<button class="${d.reachable && d.mode === m ? "active" : ""}" onclick="cmd(${d.id}, {mode: '${m}'})">${m}</button>`
+  ).join("");
+  const target = (d.target_temp !== null && d.target_temp !== undefined) ? d.target_temp : 22;
+  const valTxt = (d.target_temp !== null && d.target_temp !== undefined) ? target.toFixed(1) + "°" : "–";
+  return `
+    <div class="dev">
+      <div class="dev-top">
+        <div class="dev-title">
+          <div class="name">${escapeHtml(d.name)}</div>
+          <div class="ip">${escapeHtml(d.ip)}</div>
+        </div>
+        <div class="actions">
+          <button class="icon" onclick="editDevice(${d.id}, '${escapeAttr(d.name)}', '${escapeAttr(d.ip)}')">Edit</button>
+          <button class="icon danger" onclick="removeDevice(${d.id}, '${escapeAttr(d.name)}')">Remove</button>
+        </div>
+      </div>
+      <div class="dev-status">${statusCell(d)}</div>
+      <div class="controls ${d.reachable ? "" : "disabled"}">
+        <button class="pwr ${d.power ? "on" : ""}" onclick="cmd(${d.id}, {power: ${!d.power}})">${d.power ? "On" : "Off"}</button>
+        <div class="seg">${seg}</div>
+        <div class="stepper">
+          <button onclick="cmd(${d.id}, {temperature: ${clampTemp(target - 0.5)}})">−</button>
+          <span class="val">${valTxt}</span>
+          <button onclick="cmd(${d.id}, {temperature: ${clampTemp(target + 0.5)}})">+</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function refreshDevices() {
+  let devices;
+  try { devices = await api("GET", "/api/devices"); }
+  catch (e) { return; }
+  const container = $("devices");
+  if (!devices.length) {
+    container.innerHTML = `<div class="card"><div class="empty">No devices configured. Add one below.</div></div>`;
+    return;
+  }
+  container.innerHTML = devices.map(deviceCard).join("");
+}
+
+async function cmd(id, body) {
+  try {
+    await api("POST", `/api/devices/${id}/command`, body);
+    await Promise.all([refreshDevices(), refreshActivity()]);
+  } catch (e) {
+    alert("Command failed: " + e.message);
+  }
+}
+
+async function refreshActivity() {
+  let events;
+  try { events = await api("GET", "/api/activity?limit=200"); }
+  catch (e) { return; }
+  const feed = $("feed");
+  if (!events.length) { feed.innerHTML = `<div class="empty">No activity yet.</div>`; return; }
+  const atBottom = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 20;
+  feed.innerHTML = events.map(e => `
+    <div class="row lv-${e.level}">
+      <span class="ts">${fmtTime(e.ts)}</span>
+      <span class="dev">${e.device ? escapeHtml(e.device) : ""}</span>
+      <span class="msg-txt">${escapeHtml(e.message)}</span>
+    </div>`).join("");
+  if (atBottom) feed.scrollTop = feed.scrollHeight;
+}
+
+async function addDevice() {
+  const ip = $("add-ip").value.trim();
+  const name = $("add-name").value.trim();
+  const msg = $("add-msg");
+  if (!ip) { msg.className = "msg err"; msg.textContent = "Enter an IP address."; return; }
+  msg.className = "msg"; msg.textContent = "Probing…";
+  $("add-btn").disabled = true;
+  try {
+    await api("POST", "/api/devices", { ip, name: name || null });
+    msg.className = "msg ok"; msg.textContent = "Added.";
+    $("add-ip").value = ""; $("add-name").value = "";
+    await refreshAll();
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = e.message;
+  } finally {
+    $("add-btn").disabled = false;
+    setTimeout(() => { if (msg.textContent === "Added.") msg.textContent = ""; }, 2500);
+  }
+}
+
+async function editDevice(id, name, ip) {
+  const newIp = prompt(`IP address for "${name}":`, ip);
+  if (newIp === null) return;
+  const newName = prompt(`Name:`, name);
+  if (newName === null) return;
+  try {
+    await api("PUT", `/api/devices/${id}`, { ip: newIp.trim(), name: newName.trim() });
+    await refreshAll();
+  } catch (e) { alert("Edit failed: " + e.message); }
+}
+
+async function removeDevice(id, name) {
+  if (!confirm(`Remove "${name}"? Its HomeKit pairing for this accessory will be lost.`)) return;
+  try {
+    await api("DELETE", `/api/devices/${id}`);
+    await refreshAll();
+  } catch (e) { alert("Remove failed: " + e.message); }
+}
+
+async function refreshAll() {
+  await Promise.all([refreshInfo(), refreshDevices(), refreshActivity()]);
+}
+
+$("add-btn").addEventListener("click", addDevice);
+$("add-ip").addEventListener("keydown", e => { if (e.key === "Enter") addDevice(); });
+$("add-name").addEventListener("keydown", e => { if (e.key === "Enter") addDevice(); });
+
+refreshAll();
+setInterval(() => { refreshDevices(); refreshActivity(); }, 4000);
+setInterval(refreshInfo, 15000);
+</script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+/target
+# HAP pairing state / keys (default storage_dir); never commit.
+/data

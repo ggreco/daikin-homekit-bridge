@@ -1,0 +1,36 @@
+[package]
+name = "daikin-homekit"
+version = "0.1.0"
+edition = "2021"
+description = "A bridge exposing Daikin air conditioners to Apple HomeKit, with a small LAN admin web UI."
+license = "MIT"
+
+[[bin]]
+name = "daikin-homekit"
+path = "src/main.rs"
+
+[dependencies]
+hap = "0.1.0-pre.15"
+tokio = { version = "1", features = ["full"] }
+axum = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+percent-encoding = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+futures = "0.3"
+time = { version = "0.3", features = ["formatting", "macros", "local-offset"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+
+# See vendor/get_if_addrs/Cargo.toml: replaces the unmaintained `get_if_addrs`
+# crate (pulled in by `hap`) with a pure-Rust shim, resolving a native-library
+# `links = "ifaddrs"` conflict with `libmdns`'s `if-addrs-sys`.
+[patch.crates-io]
+get_if_addrs = { path = "vendor/get_if_addrs" }

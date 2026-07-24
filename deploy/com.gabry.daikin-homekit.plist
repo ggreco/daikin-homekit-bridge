@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.gabry.daikin-homekit</string>
+
+    <!-- Adjust these paths to where you installed the binary and config. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/daikin-homekit</string>
+        <string>/usr/local/etc/daikin-homekit/config.toml</string>
+    </array>
+
+    <!-- Working directory: storage_dir in config.toml is resolved relative to this. -->
+    <key>WorkingDirectory</key>
+    <string>/usr/local/etc/daikin-homekit</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>RUST_LOG</key>
+        <string>info,daikin_homekit=info,hap=warn</string>
+    </dict>
+
+    <!-- Start at load and keep it running (also relaunches on device changes). -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/usr/local/var/log/daikin-homekit.log</string>
+    <key>StandardErrorPath</key>
+    <string>/usr/local/var/log/daikin-homekit.log</string>
+</dict>
+</plist>

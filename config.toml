@@ -1,0 +1,16 @@
+pin = "11122333"
+name = "Daikin Bridge"
+hap_port = 32000
+web_port = 8090
+storage_dir = "./data"
+poll_secs = 10
+
+[[device]]
+id = 2
+name = "Salone"
+ip = "10.0.0.142"
+
+[[device]]
+id = 3
+name = "Home Theater"
+ip = "10.0.0.247"

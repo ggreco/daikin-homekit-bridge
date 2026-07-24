@@ -1,0 +1,20 @@
+# Drop-in pure-Rust replacement for the unmaintained `get_if_addrs` 0.5 crate.
+#
+# The published `hap` crate depends on `get_if_addrs = "0.5"`, whose
+# `get_if_addrs-sys` C shim declares `links = "ifaddrs"`. `libmdns` (also pulled
+# by `hap`) depends on `if-addrs`, whose `if-addrs-sys` shim ALSO declares
+# `links = "ifaddrs"`, and Cargo refuses to link the same native library twice.
+#
+# We only need the tiny slice of the API that `hap` actually uses
+# (`get_if_addrs()` returning items with `.ip()` and `.is_loopback()`), so this
+# shim re-implements it on top of the modern, pure-Rust `if-addrs` crate. This
+# removes `get_if_addrs-sys` from the tree entirely, resolving the conflict.
+[package]
+name = "get_if_addrs"
+version = "0.5.3"
+edition = "2021"
+license = "MIT/Apache-2.0"
+description = "Pure-Rust shim providing the get_if_addrs 0.5 API on top of if-addrs."
+
+[dependencies]
+if-addrs = "0.13"
