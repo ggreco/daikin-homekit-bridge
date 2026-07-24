@@ -32,5 +32,12 @@ strip = true
 # See vendor/get_if_addrs/Cargo.toml: replaces the unmaintained `get_if_addrs`
 # crate (pulled in by `hap`) with a pure-Rust shim, resolving a native-library
 # `links = "ifaddrs"` conflict with `libmdns`'s `if-addrs-sys`.
+#
+# `hap` is vendored (a verbatim copy of 0.1.0-pre.15) with one fix on top: a
+# `pairings/admin.json` fallback in `FileStorage` so controllers in a home with
+# resident hubs (which present per-device pairing identifiers that were never
+# individually stored) can still Pair-Verify against the shared admin key.
+# Without it, hubs get `NotFound` on verify and the Home reports "No Response".
 [patch.crates-io]
 get_if_addrs = { path = "vendor/get_if_addrs" }
+hap = { path = "vendor/hap" }

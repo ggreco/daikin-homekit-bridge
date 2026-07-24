@@ -104,6 +104,22 @@ cargo build --release --target x86_64-apple-darwin
 The pairing code is also displayed in the admin web UI at
 `http://<bridge-ip>:8090`.
 
+### Homes with a Home Hub (Apple TV / HomePod)
+
+If your home has one or more resident hubs, Apple hands the live connection to a
+hub and reports reachability through it. Each Apple device presents Pair-Verify
+using its **own** per-device pairing identifier, but only the identifier of the
+device that ran Pair-Setup is stored by stock `hap`. The hubs therefore fail
+verify with `NotFound` and every accessory shows **"No Response"**, even though
+pairing from the phone appeared to succeed.
+
+This bridge ships a patched `hap` (see below) that writes a `pairings/admin.json`
+copy of the admin pairing and falls back to it when an exact identifier lookup
+misses, so hubs verify against the shared admin key. **After upgrading from an
+unpatched build you must re-pair once** (remove the bridge in Home, delete the
+HAP state in `storage_dir` — `config.json`, `aid_cache.json`, `pairings/`,
+`misc/` — then add it again) so that `pairings/admin.json` is created.
+
 ## Admin web UI
 
 Open `http://<bridge-ip>:8090` on any LAN device. You can:
@@ -168,10 +184,20 @@ sudo launchctl unload /Library/LaunchDaemons/com.gabry.daikin-homekit.plist
 - `src/config.rs` — `config.toml` schema and persistence.
 - `vendor/get_if_addrs/` — pure-Rust shim replacing an unmaintained transitive
   dependency of `hap` to resolve a native-library conflict (see its `Cargo.toml`).
+- `vendor/hap/` — a near-verbatim copy of `hap` 0.1.0-pre.15 with two fixes
+  applied and pulled in via `[patch.crates-io]`:
+  1. a `pairings/admin.json` fallback in `FileStorage` so controllers in homes
+     with resident hubs can Pair-Verify against the shared admin key (fixes the
+     "No Response" issue above);
+  2. per-connection event listeners are deregistered when a connection closes,
+     preventing an unbounded listener leak (and `Broken pipe` log spam) on a
+     long-running server.
 
 ## Acknowledgements
 
-- HomeKit side: [`ewilken/hap-rs`](https://github.com/ewilken/hap-rs).
+- HomeKit side: [`ewilken/hap-rs`](https://github.com/ewilken/hap-rs); the
+  vendored fixes are adapted from the [`ihciah/hap-rs`](https://github.com/ihciah/hap-rs)
+  fork.
 - Daikin protocol reference:
   [`Apollon77/daikin-controller`](https://github.com/Apollon77/daikin-controller)
   and the [unofficial Daikin API docs](https://github.com/ael-code/daikin-control).

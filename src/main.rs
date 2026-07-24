@@ -67,6 +67,12 @@ async fn main() -> Result<()> {
             c.name = app_cfg.name.clone();
             c.port = app_cfg.hap_port;
             c.category = AccessoryCategory::Bridge;
+            // Bump the HAP configuration number on every start so controllers
+            // re-read the accessory database. The accessory layout can change
+            // across upgrades (e.g. added characteristics) or when devices are
+            // added/removed via the web UI, and controllers only re-enumerate
+            // when this number increments in the mDNS TXT record.
+            c.configuration_number = c.configuration_number.wrapping_add(1);
             storage.save_config(&c).await?;
             c
         }

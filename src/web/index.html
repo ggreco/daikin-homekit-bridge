@@ -75,6 +75,12 @@
     padding: 8px 10px; border-radius: 9px; min-width: 0;
   }
   input:focus { outline: none; border-color: var(--accent); }
+  select {
+    font: inherit; background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 10px; border-radius: 9px; cursor: pointer;
+  }
+  select:hover { border-color: var(--accent); }
+  select:focus { outline: none; border-color: var(--accent); }
   .addbar { display: flex; gap: 10px; padding: 14px 16px; flex-wrap: wrap; align-items: center; }
   .addbar input.ip { width: 150px; }
   .addbar input.nm { flex: 1; min-width: 140px; }
@@ -188,6 +194,8 @@ async function refreshInfo() {
 }
 
 const MODES = ["auto", "heat", "cool"];
+// Fan-rate tokens (matching the bridge) paired with friendly labels.
+const FAN_OPTS = [["A", "Auto"], ["B", "Silent"], ["3", "1"], ["4", "2"], ["5", "3"], ["6", "4"], ["7", "5"]];
 function clampTemp(t) { return Math.min(30, Math.max(16, Math.round(t * 2) / 2)); }
 
 function deviceCard(d) {
@@ -196,6 +204,9 @@ function deviceCard(d) {
   ).join("");
   const target = (d.target_temp !== null && d.target_temp !== undefined) ? d.target_temp : 22;
   const valTxt = (d.target_temp !== null && d.target_temp !== undefined) ? target.toFixed(1) + "°" : "–";
+  const knownFan = FAN_OPTS.some(([v]) => v === d.fan);
+  const fanOpts = FAN_OPTS.map(([v, l]) => `<option value="${v}" ${d.fan === v ? "selected" : ""}>Fan: ${l}</option>`).join("");
+  const fanSel = `<select onchange="cmd(${d.id}, {fan: this.value})">${knownFan ? "" : `<option selected disabled>Fan: ${escapeHtml(d.fan || "?")}</option>`}${fanOpts}</select>`;
   return `
     <div class="dev">
       <div class="dev-top">
@@ -217,6 +228,7 @@ function deviceCard(d) {
           <span class="val">${valTxt}</span>
           <button onclick="cmd(${d.id}, {temperature: ${clampTemp(target + 0.5)}})">+</button>
         </div>
+        ${fanSel}
       </div>
     </div>`;
 }
