@@ -4,7 +4,7 @@ use std::{
     env,
     ffi::OsStr,
     fs,
-    io::{BufReader, BufWriter, Read, Write},
+    io::{BufReader, Read, Write},
     path::{Path, PathBuf},
     str,
 };
@@ -75,23 +75,6 @@ impl FileStorage {
         Ok(reader)
     }
 
-    async fn get_writer(&self, file: &str) -> Result<BufWriter<fs::File>> {
-        let file_path = self.storage_path(file);
-        let writer = spawn_blocking(move || -> Result<BufWriter<fs::File>> {
-            let file = fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(file_path)?;
-            let writer = BufWriter::new(file);
-
-            Ok(writer)
-        })
-        .await??;
-
-        Ok(writer)
-    }
-
     async fn read_bytes(&self, key: &str) -> Result<Vec<u8>> {
         let mut reader = self.get_reader(key).await?;
         let value = spawn_blocking(move || -> Result<Vec<u8>> {
@@ -105,10 +88,39 @@ impl FileStorage {
         Ok(value)
     }
 
+    /// Writes `value` to `key` crash-safely.
+    ///
+    /// The bytes go to a temporary file in the same directory which is flushed
+    /// and fsynced before being renamed over the target (rename is atomic on
+    /// POSIX), and the directory itself is fsynced so the rename survives too.
+    ///
+    /// The previous implementation truncated the target first and wrote through
+    /// a `BufWriter` without ever flushing or syncing, so a power cut could
+    /// leave a zero-length or partial file. For `config.json` that means losing
+    /// the accessory's identity and invalidating every pairing.
     async fn write_bytes(&self, key: &str, value: Vec<u8>) -> Result<()> {
-        let mut writer = self.get_writer(key).await?;
+        let file_path = self.storage_path(key);
         spawn_blocking(move || -> Result<()> {
-            writer.write_all(&value)?;
+            let tmp_path = file_path.with_extension("tmp");
+
+            {
+                let mut file = fs::OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&tmp_path)?;
+                file.write_all(&value)?;
+                file.flush()?;
+                file.sync_all()?;
+            }
+
+            fs::rename(&tmp_path, &file_path)?;
+
+            if let Some(dir) = file_path.parent() {
+                if let Ok(dir) = fs::File::open(dir) {
+                    let _ = dir.sync_all();
+                }
+            }
 
             Ok(())
         })

@@ -60,6 +60,13 @@ async fn main() -> Result<()> {
     // auto-detection may otherwise pick an IPv6 address.
     let host = resolve_host(&app_cfg);
 
+    // A pre-existing config.json holds the bridge's HomeKit identity (device id
+    // + Ed25519 keypair). If it's present but unreadable we must never fall
+    // through to generating a fresh one: that silently invalidates every stored
+    // pairing and leaves the Home app stuck on "No Response".
+    let config_json = app_cfg.storage_dir.join("config.json");
+    let config_existed = config_json.exists();
+
     let hap_config = match storage.load_config().await {
         Ok(mut c) => {
             c.host = host;
@@ -76,6 +83,16 @@ async fn main() -> Result<()> {
             storage.save_config(&c).await?;
             c
         }
+        Err(e) if config_existed => {
+            anyhow::bail!(
+                "{} exists but could not be loaded ({e}). Refusing to start: generating a new \
+                 identity here would invalidate the existing pairings in {}/pairings and every \
+                 controller would show \"No Response\". Restore the file from a backup, or delete \
+                 it to start fresh and re-pair the bridge in the Home app.",
+                config_json.display(),
+                app_cfg.storage_dir.display(),
+            );
+        }
         Err(_) => {
             let c = Config {
                 host,
@@ -86,6 +103,7 @@ async fn main() -> Result<()> {
                 ..Default::default()
             };
             storage.save_config(&c).await?;
+            activity.info(None, "no existing HomeKit identity, generated a new one");
             c
         }
     };
